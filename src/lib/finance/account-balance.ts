@@ -1,0 +1,144 @@
+import type {
+  AccountBalanceSnapshot,
+  AdHocExpense,
+  AdHocIncome,
+  RegisteredPayment,
+} from "./types";
+import { filterAdHocExpensesInRange } from "./ad-hoc-expense";
+import { filterAdHocIncomesInRange } from "./ad-hoc-income";
+import { getActiveRegisteredPayments } from "./registered-payment";
+import { roundMoney } from "./utils";
+
+export interface AccountBalanceFormData {
+  amount: number;
+  asOfDate: string;
+}
+
+export interface AccountBalanceValidationError {
+  field: keyof AccountBalanceFormData;
+  message: string;
+}
+
+export interface BalanceMovementsSinceSnapshot {
+  extraIncomes: number;
+  registeredPayments: number;
+  loggedExpenses: number;
+  netChange: number;
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function dayAfter(isoDate: string): string {
+  const date = new Date(`${isoDate}T12:00:00`);
+  date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+export function validateAccountBalance(
+  data: AccountBalanceFormData
+): AccountBalanceValidationError[] {
+  const errors: AccountBalanceValidationError[] = [];
+
+  if (!Number.isFinite(data.amount)) {
+    errors.push({
+      field: "amount",
+      message: "Informe o saldo da conta.",
+    });
+  }
+
+  if (!ISO_DATE.test(data.asOfDate)) {
+    errors.push({
+      field: "asOfDate",
+      message: "Informe a data em que conferiu o saldo.",
+    });
+  }
+
+  return errors;
+}
+
+/** Movimentos depois da conferência — o saldo informado já reflete o dia da conferência */
+export function sumMovementsSinceSnapshot(
+  snapshot: AccountBalanceSnapshot,
+  today: string,
+  adHocIncomes: AdHocIncome[],
+  adHocExpenses: AdHocExpense[],
+  registeredPayments: RegisteredPayment[]
+): BalanceMovementsSinceSnapshot {
+  const startDate = dayAfter(snapshot.asOfDate);
+
+  if (startDate.localeCompare(today) > 0) {
+    return {
+      extraIncomes: 0,
+      registeredPayments: 0,
+      loggedExpenses: 0,
+      netChange: 0,
+    };
+  }
+
+  const extraIncomes = roundMoney(
+    filterAdHocIncomesInRange(adHocIncomes, startDate, today).reduce(
+      (sum, income) => sum + income.amount,
+      0
+    )
+  );
+
+  const loggedExpenses = roundMoney(
+    filterAdHocExpensesInRange(adHocExpenses, startDate, today).reduce(
+      (sum, expense) => sum + expense.amount,
+      0
+    )
+  );
+
+  const registeredPaymentsTotal = roundMoney(
+    getActiveRegisteredPayments(registeredPayments)
+      .filter(
+        (payment) =>
+          payment.paidDate.localeCompare(startDate) >= 0 &&
+          payment.paidDate.localeCompare(today) <= 0
+      )
+      .reduce((sum, payment) => sum + payment.amount, 0)
+  );
+
+  const netChange = roundMoney(
+    extraIncomes - loggedExpenses - registeredPaymentsTotal
+  );
+
+  return {
+    extraIncomes,
+    registeredPayments: registeredPaymentsTotal,
+    loggedExpenses,
+    netChange,
+  };
+}
+
+export function computeCurrentAccountBalance(
+  snapshot: AccountBalanceSnapshot,
+  today: string,
+  adHocIncomes: AdHocIncome[],
+  adHocExpenses: AdHocExpense[],
+  registeredPayments: RegisteredPayment[]
+): number {
+  const movements = sumMovementsSinceSnapshot(
+    snapshot,
+    today,
+    adHocIncomes,
+    adHocExpenses,
+    registeredPayments
+  );
+
+  return roundMoney(snapshot.amount + movements.netChange);
+}
+
+export function computeAvailableFromAccountBalance(
+  currentBalance: number,
+  expensesUpcoming: number,
+  variableBudgetForPeriod: number,
+  loggedExpensesUpcoming: number
+): number {
+  return roundMoney(
+    currentBalance -
+      expensesUpcoming -
+      variableBudgetForPeriod -
+      loggedExpensesUpcoming
+  );
+}
