@@ -28,12 +28,6 @@ export interface BalanceMovementsSinceSnapshot {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-function dayAfter(isoDate: string): string {
-  const date = new Date(`${isoDate}T12:00:00`);
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
-
 export function validateAccountBalance(
   data: AccountBalanceFormData
 ): AccountBalanceValidationError[] {
@@ -56,7 +50,7 @@ export function validateAccountBalance(
   return errors;
 }
 
-/** Movimentos depois da conferência — o saldo informado já reflete o dia da conferência */
+/** Lançamentos a partir da data da conferência (inclusive) ajustam o saldo informado */
 export function sumMovementsSinceSnapshot(
   snapshot: AccountBalanceSnapshot,
   today: string,
@@ -64,7 +58,7 @@ export function sumMovementsSinceSnapshot(
   adHocExpenses: AdHocExpense[],
   registeredPayments: RegisteredPayment[]
 ): BalanceMovementsSinceSnapshot {
-  const startDate = dayAfter(snapshot.asOfDate);
+  const startDate = snapshot.asOfDate;
 
   if (startDate.localeCompare(today) > 0) {
     return {

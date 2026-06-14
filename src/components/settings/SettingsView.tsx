@@ -80,8 +80,9 @@ export function SettingsView({
     <div className="space-y-4">
       <Card title="Saldo em conta">
         <p className="mb-4 text-sm text-slate-600">
-          Informe o valor que aparece no app do seu banco. Pagamentos, gastos e
-          ganhos lançados depois dessa data ajustam o saldo automaticamente.
+          Informe o valor que aparece no app do seu banco agora. Gastos, pagamentos
+          e ganhos lançados a partir dessa data (inclusive) ajustam o saldo
+          automaticamente.
         </p>
 
         {snapshot ? (

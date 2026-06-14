@@ -59,7 +59,23 @@ describe("account balance", () => {
     ).toBe(2650);
   });
 
-  it("não conta movimentos no mesmo dia da conferência", () => {
+  it("desconta gasto lançado no mesmo dia da conferência", () => {
+    const expenses: AdHocExpense[] = [
+      {
+        id: "e1",
+        name: "Café",
+        amount: 1,
+        date: "2026-06-10",
+        active: true,
+      },
+    ];
+
+    expect(
+      computeCurrentAccountBalance(snapshot, "2026-06-10", [], expenses, [])
+    ).toBe(2449);
+  });
+
+  it("desconta pagamento registrado após o dia da conferência", () => {
     const payments: RegisteredPayment[] = [
       {
         id: "p1",
@@ -76,15 +92,15 @@ describe("account balance", () => {
 
     const movements = sumMovementsSinceSnapshot(
       snapshot,
-      "2026-06-13",
+      "2026-06-10",
       [],
       [],
       payments
     );
 
-    expect(movements.registeredPayments).toBe(0);
-    expect(computeCurrentAccountBalance(snapshot, "2026-06-13", [], [], payments)).toBe(
-      2450
+    expect(movements.registeredPayments).toBe(800);
+    expect(computeCurrentAccountBalance(snapshot, "2026-06-10", [], [], payments)).toBe(
+      1650
     );
   });
 
