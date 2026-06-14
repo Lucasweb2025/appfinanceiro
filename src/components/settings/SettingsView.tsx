@@ -2,6 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
+import { AdminUsersCard, isAdminEmail } from "@/components/settings/AdminUsersCard";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  isNotificationsEnabled,
+  requestNotificationPermission,
+  setNotificationsEnabled,
+} from "@/lib/notifications/alerts";
 import {
   validateAccountBalance,
   type AccountBalanceFormData,
@@ -36,6 +44,22 @@ export function SettingsView({
     {}
   );
   const [saved, setSaved] = useState(false);
+  const auth = useAuth();
+  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim() ?? "";
+  const showAdminUsers =
+    auth.configured &&
+    isAdminEmail(auth.user?.email, adminEmail) &&
+    adminEmail.length > 0;
+  const [notificationsOn, setNotificationsOn] = useState(false);
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermission>("default");
+
+  useEffect(() => {
+    setNotificationsOn(isNotificationsEnabled());
+    if ("Notification" in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
 
   useEffect(() => {
     setForm({
@@ -44,6 +68,17 @@ export function SettingsView({
         snapshot?.asOfDate ?? toISODate(today.year, today.month, today.day),
     });
   }, [snapshot]);
+
+  async function handleNotificationsToggle() {
+    const next = !notificationsOn;
+    if (next) {
+      const permission = await requestNotificationPermission();
+      setNotificationPermission(permission);
+      if (permission !== "granted") return;
+    }
+    setNotificationsOn(next);
+    setNotificationsEnabled(next);
+  }
 
   function handleClearAll() {
     const confirmed = window.confirm(
@@ -199,6 +234,67 @@ export function SettingsView({
           </button>
         ) : null}
       </Card>
+
+      {auth.configured ? (
+        <Card title="Conta na nuvem">
+          <p className="mb-3 text-sm text-slate-600">
+            Logado como <strong>{auth.user?.email}</strong>
+          </p>
+          {auth.syncStatus === "syncing" ? (
+            <p className="mb-3 text-sm text-brand-700">Sincronizando...</p>
+          ) : null}
+          {auth.syncMessage ? (
+            <p className="mb-3 text-sm text-rose-600">{auth.syncMessage}</p>
+          ) : null}
+          {auth.lastSyncedAt ? (
+            <p className="mb-3 text-xs text-slate-500">
+              Última sync: {new Date(auth.lastSyncedAt).toLocaleString("pt-BR")}
+            </p>
+          ) : null}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => void auth.syncNow()}
+              className="w-full rounded-2xl bg-brand-50 py-3 font-medium text-brand-700"
+            >
+              Sincronizar agora
+            </button>
+            <button
+              type="button"
+              onClick={() => void auth.signOut()}
+              className="w-full rounded-2xl bg-slate-100 py-3 font-medium text-slate-700"
+            >
+              Sair
+            </button>
+          </div>
+        </Card>
+      ) : null}
+
+      {showAdminUsers ? <AdminUsersCard adminEmail={adminEmail} /> : null}
+
+      <Card title="Notificações">
+        <p className="mb-4 text-sm text-slate-600">
+          Aviso de contas vencidas ou que vencem hoje (faculdade, cartão, fixos).
+        </p>
+        <button
+          type="button"
+          onClick={() => void handleNotificationsToggle()}
+          className={`w-full rounded-2xl py-3 font-semibold ${
+            notificationsOn
+              ? "bg-brand-600 text-white"
+              : "bg-slate-100 text-slate-700"
+          }`}
+        >
+          {notificationsOn ? "Notificações ativas" : "Ativar notificações"}
+        </button>
+        {notificationPermission === "denied" ? (
+          <p className="mt-3 text-sm text-amber-700">
+            Permissão bloqueada no navegador. Libere nas configurações do site.
+          </p>
+        ) : null}
+      </Card>
+
+      <InstallPrompt />
 
       <Card title="Dados">
         <p className="mb-4 text-sm text-slate-600">

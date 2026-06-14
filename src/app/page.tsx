@@ -20,6 +20,7 @@ import { VariableFormModal } from "@/components/variable/VariableFormModal";
 import { VariableList } from "@/components/variable/VariableList";
 import { PageShell } from "@/components/ui";
 import { useAssistantTone } from "@/hooks/useAssistantTone";
+import { useAuth } from "@/hooks/useAuth";
 import { useAccountBalance } from "@/hooks/useAccountBalance";
 import { useActiveDebts } from "@/hooks/useActiveDebts";
 import { useAdHocExpenses } from "@/hooks/useAdHocExpenses";
@@ -29,6 +30,7 @@ import { useCreditCards } from "@/hooks/useCreditCards";
 import { useFinancialGoals } from "@/hooks/useFinancialGoals";
 import { useRecurringEntries } from "@/hooks/useRecurringEntries";
 import { useVariableBudgets } from "@/hooks/useVariableBudgets";
+import { useNotifications } from "@/hooks/useNotifications";
 import { buildDashboardSummary } from "@/lib/finance/dashboard";
 import {
   buildAssistantSummary,
@@ -58,6 +60,7 @@ export default function HomePage() {
   const debts = useActiveDebts();
   const creditCards = useCreditCards();
   const financialGoals = useFinancialGoals();
+  const auth = useAuth();
   const [tab, setTab] = useState<AppTab>("home");
   const [filter, setFilter] = useState<EntryType | "all">("all");
   const [recurringModalOpen, setRecurringModalOpen] = useState(false);
@@ -165,6 +168,33 @@ export default function HomePage() {
     debts.ready &&
     creditCards.ready &&
     financialGoals.ready;
+
+  useNotifications(ready ? dashboard : null);
+
+  useEffect(() => {
+    if (!auth.configured || !auth.user || !ready) return;
+
+    const timer = window.setTimeout(() => {
+      void auth.syncNow();
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    auth.configured,
+    auth.user,
+    auth.syncNow,
+    ready,
+    recurring.entries,
+    variable.budgets,
+    debts.debts,
+    creditCards.cards,
+    financialGoals.goals,
+    adHocExpenses.expenses,
+    adHocIncomes.incomes,
+    registeredPayments.payments,
+    accountBalance.snapshot,
+    assistantTone.tone,
+  ]);
 
   function handleRestoreDefaults() {
     recurring.restoreDefaults();
