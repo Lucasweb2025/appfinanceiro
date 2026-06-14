@@ -140,6 +140,7 @@ export function SettingsView({
               Valor na conta
             </label>
             <input
+              data-testid="account-balance-amount"
               type="number"
               step="0.01"
               min="0"
@@ -160,6 +161,7 @@ export function SettingsView({
               Conferido em
             </label>
             <input
+              data-testid="account-balance-date"
               type="date"
               className="w-full rounded-2xl border border-slate-200 px-4 py-3"
               value={form.asOfDate}
@@ -173,6 +175,7 @@ export function SettingsView({
           </div>
 
           <button
+            data-testid="save-account-balance"
             type="submit"
             className="w-full rounded-2xl bg-brand-600 py-3 font-semibold text-white"
           >

@@ -37,6 +37,8 @@ export function BottomNav({
             <button
               key={tab.id}
               type="button"
+              aria-label={tab.label}
+              aria-current={selected ? "page" : undefined}
               onClick={() => onChange(tab.id)}
               className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1.5 text-[9px] font-medium transition sm:text-[10px] ${
                 selected ? "text-brand-700" : "text-slate-500"

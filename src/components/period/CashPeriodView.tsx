@@ -94,6 +94,7 @@ export function CashPeriodCard({ period }: { period: CashPeriodSummary }) {
           <div className="mt-4 rounded-2xl bg-white/10 p-4">
             <p className="text-sm text-slate-300">Saldo em conta agora</p>
             <p
+              data-testid="current-account-balance"
               className={`mt-1 text-4xl font-bold ${
                 balancePositive ? "text-white" : "text-rose-300"
               }`}
@@ -133,6 +134,7 @@ export function CashPeriodCard({ period }: { period: CashPeriodSummary }) {
               : "Disponível para gastar agora"}
           </p>
           <p
+            data-testid="available-to-spend"
             className={`mt-1 text-4xl font-bold ${
               positive ? "text-emerald-300" : "text-rose-300"
             }`}
