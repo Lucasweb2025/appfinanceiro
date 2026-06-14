@@ -24,3 +24,6 @@ jobs:
 
       - name: Load test (perfis sintéticos)
         run: npm run test:load
+
+      - name: Cenários fixos
+        run: npm run test:scenarios
