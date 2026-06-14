@@ -129,7 +129,7 @@ export function CashPeriodCard({ period }: { period: CashPeriodSummary }) {
         <div className="mt-4">
           <p className="text-sm text-slate-300">
             {period.usesAccountBalance
-              ? "Disponível para gastar (após contas agendadas)"
+              ? "Disponível até a próxima entrada (contas agendadas)"
               : "Disponível para gastar agora"}
           </p>
           <p
@@ -258,10 +258,17 @@ export function CashPeriodCard({ period }: { period: CashPeriodSummary }) {
           </p>
         </div>
         <div className="bg-slate-900/40 p-4">
-          <p className="text-xs text-slate-400">Variáveis (período)</p>
+          <p className="text-xs text-slate-400">
+            {period.usesAccountBalance ? "Variáveis (planejamento)" : "Variáveis (período)"}
+          </p>
           <p className="mt-1 font-semibold text-amber-200">
             −{formatCurrency(period.variableBudgetForPeriod)}
           </p>
+          {period.usesAccountBalance ? (
+            <p className="mt-1 text-xs text-slate-500">
+              Não desconta do disponível — seu saldo conferido já reflete a vida real
+            </p>
+          ) : null}
         </div>
         {period.loggedExpensesTotal > 0 ? (
           <div className="col-span-2 bg-slate-900/40 p-4">

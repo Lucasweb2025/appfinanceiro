@@ -53,7 +53,7 @@ export function validateAccountBalance(
   return errors;
 }
 
-/** Lançamentos a partir da data da conferência (inclusive) ajustam o saldo informado */
+/** Lançamentos depois da data da conferência ajustam o saldo informado */
 export function sumMovementsSinceSnapshot(
   snapshot: AccountBalanceSnapshot,
   today: string,
@@ -81,25 +81,22 @@ export function sumMovementsSinceSnapshot(
   );
 
   const extraIncomes = roundMoney(
-    filterAdHocIncomesInRange(adHocIncomes, startDate, today).reduce(
-      (sum, income) => sum + income.amount,
-      0
-    )
+    filterAdHocIncomesInRange(adHocIncomes, startDate, today)
+      .filter((income) => income.date > startDate)
+      .reduce((sum, income) => sum + income.amount, 0)
   );
 
   const loggedExpenses = roundMoney(
-    filterAdHocExpensesInRange(adHocExpenses, startDate, today).reduce(
-      (sum, expense) => sum + expense.amount,
-      0
-    )
+    filterAdHocExpensesInRange(adHocExpenses, startDate, today)
+      .filter((expense) => expense.date > startDate)
+      .reduce((sum, expense) => sum + expense.amount, 0)
   );
 
   const registeredPaymentsTotal = roundMoney(
     getActiveRegisteredPayments(registeredPayments)
       .filter(
         (payment) =>
-          payment.paidDate.localeCompare(startDate) >= 0 &&
-          payment.paidDate.localeCompare(today) <= 0
+          payment.paidDate > startDate && payment.paidDate <= today
       )
       .reduce((sum, payment) => sum + payment.amount, 0)
   );

@@ -52,10 +52,15 @@ describe("perfil Lucas (jun/2026)", () => {
     );
   });
 
-  it("dia 13: saldo R$ 2 e próximo vale dia 20", () => {
+  it("dia 13: saldo conferido R$ 2 não muda por pagamentos já marcados", () => {
     const dashboard = buildLucasDashboard(13);
 
     expect(dashboard.cashPeriod.currentAccountBalance).toBe(2);
+    expect(dashboard.cashPeriod.balanceMovementsSinceSnapshot?.registeredPayments).toBe(
+      0
+    );
+    expect(dashboard.cashPeriod.availableToSpend).toBe(2);
+    expect(dashboard.cashPeriod.dailyBudget).toBeCloseTo(0.25, 2);
     expect(dashboard.cashPeriod.nextIncome?.dayOfMonth).toBe(20);
     expect(dashboard.cashPeriod.nextIncome?.amount).toBe(1750);
 

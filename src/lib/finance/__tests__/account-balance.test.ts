@@ -92,7 +92,7 @@ describe("account balance", () => {
     ).toBe(4200);
   });
 
-  it("desconta gasto lançado no mesmo dia da conferência", () => {
+  it("não desconta gasto lançado no mesmo dia da conferência", () => {
     const expenses: AdHocExpense[] = [
       {
         id: "e1",
@@ -105,10 +105,10 @@ describe("account balance", () => {
 
     expect(
       computeCurrentAccountBalance(snapshot, "2026-06-10", [], [], expenses, [])
-    ).toBe(2449);
+    ).toBe(2450);
   });
 
-  it("desconta pagamento registrado após o dia da conferência", () => {
+  it("não desconta pagamento registrado no mesmo dia da conferência", () => {
     const payments: RegisteredPayment[] = [
       {
         id: "p1",
@@ -123,9 +123,29 @@ describe("account balance", () => {
       },
     ];
 
+    expect(
+      computeCurrentAccountBalance(snapshot, "2026-06-10", [], [], [], payments)
+    ).toBe(2450);
+  });
+
+  it("desconta pagamento registrado depois do dia da conferência", () => {
+    const payments: RegisteredPayment[] = [
+      {
+        id: "p1",
+        targetType: "debt",
+        targetId: "d1",
+        label: "Aluguel",
+        amount: 800,
+        paidDate: "2026-06-11",
+        referenceMonth: "2026-06",
+        paidEarly: false,
+        active: true,
+      },
+    ];
+
     const movements = sumMovementsSinceSnapshot(
       snapshot,
-      "2026-06-10",
+      "2026-06-13",
       [],
       [],
       [],
@@ -134,8 +154,62 @@ describe("account balance", () => {
 
     expect(movements.registeredPayments).toBe(800);
     expect(
-      computeCurrentAccountBalance(snapshot, "2026-06-10", [], [], [], payments)
+      computeCurrentAccountBalance(snapshot, "2026-06-13", [], [], [], payments)
     ).toBe(1650);
+  });
+
+  it("mantém saldo conferido mesmo com pagamentos já marcados no mês", () => {
+    const reconciled: AccountBalanceSnapshot = {
+      amount: 2,
+      asOfDate: "2026-06-13",
+    };
+
+    const payments: RegisteredPayment[] = [
+      {
+        id: "p-nubank",
+        targetType: "card",
+        targetId: "card-nubank",
+        label: "Nubank — fatura",
+        amount: 450,
+        paidDate: "2026-06-08",
+        referenceMonth: "2026-06",
+        paidEarly: false,
+        active: true,
+      },
+      {
+        id: "p-claro",
+        targetType: "recurring",
+        targetId: "expense-claro-5",
+        label: "Claro Flex",
+        amount: 45,
+        paidDate: "2026-06-05",
+        referenceMonth: "2026-06",
+        paidEarly: false,
+        active: true,
+      },
+      {
+        id: "p-faculdade",
+        targetType: "recurring",
+        targetId: "expense-faculdade-5",
+        label: "Faculdade",
+        amount: 315,
+        paidDate: "2026-06-05",
+        referenceMonth: "2026-06",
+        paidEarly: false,
+        active: true,
+      },
+    ];
+
+    expect(
+      computeCurrentAccountBalance(
+        reconciled,
+        "2026-06-13",
+        recurringIncomes,
+        [],
+        [],
+        payments
+      )
+    ).toBe(2);
   });
 
   it("calcula disponível a partir do saldo em conta", () => {

@@ -681,7 +681,7 @@ export function buildCashPeriodSummary(
     ? computeAvailableFromAccountBalance(
         currentAccountBalance ?? 0,
         expensesUpcoming,
-        variableBudgetForPeriod,
+        0,
         untaggedUpcoming
       )
     : roundMoney(

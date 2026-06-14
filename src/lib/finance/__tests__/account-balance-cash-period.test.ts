@@ -43,6 +43,7 @@ describe("cash period with account balance", () => {
 
     expect(period.usesAccountBalance).toBe(true);
     expect(period.currentAccountBalance).toBe(2000);
-    expect(period.availableToSpend).toBeCloseTo(1840, 1);
+    expect(period.availableToSpend).toBe(2000);
+    expect(period.variableBudgetForPeriod).toBeGreaterThan(0);
   });
 });

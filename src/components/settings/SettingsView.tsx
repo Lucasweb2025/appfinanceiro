@@ -120,9 +120,10 @@ export function SettingsView({
 
       <Card title="Saldo em conta">
         <p className="mb-4 text-sm text-slate-600">
-          Informe o valor que aparece no app do seu banco agora. Gastos, pagamentos
-          e ganhos lançados a partir dessa data (inclusive) ajustam o saldo
-          automaticamente.
+          Informe o valor que aparece no app do seu banco agora — já com tudo que
+          saiu ou entrou até esse momento. &quot;Já paguei&quot; no mês não
+          desconta de novo desse valor. Só movimentos{" "}
+          <strong>depois</strong> da data da conferência ajustam o saldo.
         </p>
 
         {snapshot ? (
