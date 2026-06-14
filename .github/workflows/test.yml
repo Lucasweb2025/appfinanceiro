@@ -21,3 +21,6 @@ jobs:
       - run: npm ci
 
       - run: npm test
+
+      - name: Load test (perfis sintéticos)
+        run: npm run test:load

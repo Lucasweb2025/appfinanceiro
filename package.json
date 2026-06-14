@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:load": "vitest run src/lib/fixtures/load-profiles.test.ts"
   },
   "dependencies": {
     "next": "^16.2.9",
