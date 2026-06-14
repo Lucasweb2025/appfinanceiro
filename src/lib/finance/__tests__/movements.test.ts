@@ -176,15 +176,23 @@ describe("spec 07 — ganhos e pagamentos", () => {
   });
 
   it("remove evento agendado quando há pagamento registrado", () => {
-    const raw = [
+    const raw: Array<{
+      id: string;
+      date: string;
+      day: number;
+      name: string;
+      amount: number;
+      type: "expense";
+      kind: string;
+    }> = [
       {
         id: "debt-scheduled",
         date: "2026-06-08",
         day: 8,
         name: "Empréstimo (parcela)",
         amount: 300,
-        type: "expense" as const,
-        kind: "debt" as const,
+        type: "expense",
+        kind: "debt",
       },
     ];
 

@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   buildPaymentTargetOptions,
+  formatReferenceMonthLabel,
   getScheduledDueDateForPayment,
-  referenceMonthFromDate,
   validateRegisteredPayment,
   type PaymentTargetOption,
   type RegisteredPaymentFormData,
@@ -42,6 +42,7 @@ export function RegisteredPaymentFormModal({
   activeDebts,
   creditCards,
   presetTargetKey,
+  presetReferenceMonth,
   onClose,
   onSubmit,
 }: {
@@ -51,6 +52,7 @@ export function RegisteredPaymentFormModal({
   activeDebts: ActiveDebt[];
   creditCards: CreditCard[];
   presetTargetKey?: string;
+  presetReferenceMonth?: string;
   onClose: () => void;
   onSubmit: (data: RegisteredPaymentFormData) => void;
 }) {
@@ -99,7 +101,7 @@ export function RegisteredPaymentFormModal({
             targetId: option.targetId,
             label: option.label,
             amount: option.defaultAmount,
-            referenceMonth: option.referenceMonth,
+            referenceMonth: presetReferenceMonth ?? option.referenceMonth,
           });
         } else {
           setForm(base);
@@ -119,7 +121,7 @@ export function RegisteredPaymentFormModal({
       }
     }
     setErrors({});
-  }, [open, initial, presetTargetKey, options, referenceMonth]);
+  }, [open, initial, presetTargetKey, presetReferenceMonth, options, referenceMonth]);
 
   function updatePaidEarly(next: RegisteredPaymentFormData): RegisteredPaymentFormData {
     if (!next.targetId) return next;
@@ -165,18 +167,12 @@ export function RegisteredPaymentFormModal({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const validation = validateRegisteredPayment({
-      ...form,
-      referenceMonth: referenceMonthFromDate(form.paidDate),
-    });
+    const validation = validateRegisteredPayment(form);
     if (validation.length > 0) {
       setErrors(Object.fromEntries(validation.map((e) => [e.field, e.message])));
       return;
     }
-    onSubmit({
-      ...form,
-      referenceMonth: referenceMonthFromDate(form.paidDate),
-    });
+    onSubmit(form);
     onClose();
   }
 
@@ -192,6 +188,14 @@ export function RegisteredPaymentFormModal({
         <p className="mt-1 text-sm text-slate-500">
           Informe quando pagou de fato — inclusive antecipado.
         </p>
+        {form.referenceMonth ? (
+          <p className="mt-2 text-sm font-medium text-slate-700">
+            Conta referente a{" "}
+            <span className="text-brand-700">
+              {formatReferenceMonthLabel(form.referenceMonth)}
+            </span>
+          </p>
+        ) : null}
 
         {options.length === 0 ? (
           <p className="mt-5 text-sm text-amber-700">

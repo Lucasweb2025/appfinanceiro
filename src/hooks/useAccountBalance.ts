@@ -6,6 +6,7 @@ import type { AccountBalanceSnapshot } from "@/lib/finance/types";
 import {
   clearAccountBalance,
   loadAccountBalance,
+  resetAccountBalance,
   saveAccountBalance,
 } from "@/lib/storage/account-balance-storage";
 
@@ -39,10 +40,15 @@ export function useAccountBalance() {
     persist(clearAccountBalance());
   }, [persist]);
 
+  const restoreDefaults = useCallback(() => {
+    persist(resetAccountBalance());
+  }, [persist]);
+
   return {
     snapshot,
     ready,
     saveSnapshot,
     clearSnapshot,
+    restoreDefaults,
   };
 }

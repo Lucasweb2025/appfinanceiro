@@ -1,20 +1,27 @@
 "use client";
 
-import { BankBalanceSetupHint, BankSyncReminder } from "@/components/home/BankSyncReminder";
+import { useEffect, useMemo, useState } from "react";
+import { AssistantCard } from "@/components/home/AssistantCard";
 import { CashPeriodDetails } from "@/components/period/CashPeriodView";
 import { MovementsListCard } from "@/components/movements/MovementsList";
 import { paidTextClass } from "@/components/movements/PaidStatus";
 import { Badge, Card, Stat } from "@/components/ui";
+import type { AssistantMessage, AssistantSummary } from "@/lib/finance/assistant";
 import type { DashboardSummary } from "@/lib/finance/dashboard";
 import { formatPaidDateLabel } from "@/lib/finance/registered-payment";
 import type { AdHocIncome, RegisteredPayment } from "@/lib/finance/types";
-import { formatCurrency } from "@/lib/finance/utils";
+import { formatCurrency, todayParts, toISODate } from "@/lib/finance/utils";
+
+const BANK_REMINDER_KEY = "app-financas-bank-reminder-dismissed";
 
 export function DashboardView({
   summary,
+  assistant,
   onAddExpense,
   onAddIncome,
   onRegisterPayment,
+  onGoSettings,
+  onSimulate,
   incomes,
   payments,
   onEditIncome,
@@ -23,9 +30,12 @@ export function DashboardView({
   onDeletePayment,
 }: {
   summary: DashboardSummary;
+  assistant: AssistantSummary;
   onAddExpense: () => void;
   onAddIncome: () => void;
-  onRegisterPayment: (presetKey?: string) => void;
+  onRegisterPayment: (presetKey?: string, referenceMonth?: string) => void;
+  onGoSettings: () => void;
+  onSimulate: () => void;
   incomes: AdHocIncome[];
   payments: RegisteredPayment[];
   onEditIncome: (income: AdHocIncome) => void;
@@ -34,10 +44,46 @@ export function DashboardView({
   onDeletePayment: (id: string) => void;
 }) {
   const positive = summary.netBalance >= 0;
+  const [bankDismissed, setBankDismissed] = useState(true);
+
+  useEffect(() => {
+    const today = todayParts();
+    const todayIso = toISODate(today.year, today.month, today.day);
+    setBankDismissed(window.localStorage.getItem(BANK_REMINDER_KEY) === todayIso);
+  }, []);
+
+  const visibleAssistant = useMemo(() => {
+    if (bankDismissed) {
+      return {
+        ...assistant,
+        messages: assistant.messages.filter((m) => m.id !== "bank-sync"),
+      };
+    }
+    return assistant;
+  }, [assistant, bankDismissed]);
+
+  function handleAssistantAction(message: AssistantMessage) {
+    if (message.action === "settings-balance") {
+      onGoSettings();
+      return;
+    }
+    if (message.action === "dismiss-bank-reminder") {
+      const today = todayParts();
+      const todayIso = toISODate(today.year, today.month, today.day);
+      window.localStorage.setItem(BANK_REMINDER_KEY, todayIso);
+      setBankDismissed(true);
+      return;
+    }
+    if (message.action === "register-payment" && message.paymentPresetKey) {
+      onRegisterPayment(message.paymentPresetKey, message.referenceMonth);
+    }
+  }
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <AssistantCard summary={visibleAssistant} onAction={handleAssistantAction} />
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <button
           type="button"
           onClick={onAddExpense}
@@ -59,13 +105,14 @@ export function DashboardView({
         >
           + Pagamento
         </button>
+        <button
+          type="button"
+          onClick={onSimulate}
+          className="rounded-2xl bg-slate-800 py-3 text-center text-sm font-semibold text-white shadow-md shadow-slate-800/20"
+        >
+          Simular
+        </button>
       </div>
-
-      {summary.cashPeriod.usesAccountBalance ? (
-        <BankSyncReminder />
-      ) : (
-        <BankBalanceSetupHint />
-      )}
 
       <CashPeriodDetails
         period={summary.cashPeriod}
@@ -161,7 +208,12 @@ export function DashboardView({
                   {alert.paymentPresetKey ? (
                     <button
                       type="button"
-                      onClick={() => onRegisterPayment(alert.paymentPresetKey)}
+                      onClick={() =>
+                        onRegisterPayment(
+                          alert.paymentPresetKey,
+                          alert.date.slice(0, 7)
+                        )
+                      }
                       className="rounded-xl bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700"
                     >
                       Já paguei
@@ -290,20 +342,20 @@ export function DashboardView({
                       }
                     >
                       {item.estimatedMonths === null
-                        ? "Sem sobra"
-                        : `${item.estimatedMonths} mes(es)`}
+                        ? "Sem previsão"
+                        : `~${item.estimatedMonths} mês(es)`}
                     </Badge>
                   </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
+                  <p className="mt-1 text-sm text-slate-500">
+                    Faltam {formatCurrency(item.remaining)} · Sobra/mês:{" "}
+                    {formatCurrency(item.monthlySurplus)}
+                  </p>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-brand-100">
                     <div
                       className="h-full rounded-full bg-brand-600"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Faltam {formatCurrency(item.remaining)} · Previsão:{" "}
-                    {item.estimatedDate ?? "—"}
-                  </p>
                 </li>
               );
             })}
@@ -312,34 +364,32 @@ export function DashboardView({
       ) : null}
 
       {summary.creditCardItems.length > 0 ? (
-        <Card title="Cartões — fechamento e vencimento">
+        <Card title="Cartões — fatura estimada">
           <ul className="space-y-3">
-            {summary.creditCardItems.map((card) => (
+            {summary.creditCardItems.map((item) => (
               <li
-                key={card.id}
+                key={item.id}
                 className={`rounded-2xl border px-4 py-3 ${
-                  card.isPaidThisMonth
+                  item.isPaidThisMonth
                     ? "border-emerald-100 bg-emerald-50/40"
-                    : "border-violet-100 bg-violet-50/40"
+                    : "border-slate-100"
                 }`}
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className={`font-medium ${paidTextClass(Boolean(card.isPaidThisMonth))}`}>
-                    {card.name}
+                  <p className={`font-medium ${paidTextClass(Boolean(item.isPaidThisMonth))}`}>
+                    {item.name}
                   </p>
-                  {card.isPaidThisMonth ? (
-                    <Badge tone={card.paidEarly ? "warning" : "success"}>
-                      {card.paidEarly ? "Pago antecipado" : "Já pago"}
+                  {item.isPaidThisMonth && item.paidDate ? (
+                    <Badge tone={item.paidEarly ? "warning" : "success"}>
+                      {item.paidEarly ? "Pago antecipado" : "Já pago"}
                     </Badge>
                   ) : null}
                 </div>
-                <p className="text-sm text-slate-500">
-                  Fecha dia {card.closingDay} · Vence dia {card.dueDay}
-                </p>
                 <p
-                  className={`mt-1 text-sm font-medium ${card.isPaidThisMonth ? "text-slate-400 line-through" : "text-rose-700"}`}
+                  className={`text-sm ${item.isPaidThisMonth ? "text-slate-400 line-through" : "text-slate-500"}`}
                 >
-                  Fatura est.: {formatCurrency(card.estimatedBillAmount)}
+                  Fatura {formatCurrency(item.estimatedBillAmount)} · Vence dia{" "}
+                  {item.dueDay}
                 </p>
               </li>
             ))}

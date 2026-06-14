@@ -29,10 +29,18 @@ import {
 import { buildCreditCardEventsForMonth } from "./credit-card";
 import { applyDebtPaymentsForMonth, createDebtBalanceMap } from "./debts";
 import { summarizeRecurringMonth } from "./recurring";
-import { sumVariableExpenses } from "./variable";
+import {
+  sumUntaggedAdHocExpensesInRange,
+  sumUntaggedAdHocExpensesUpcomingInRange,
+  sumVariableCostForRemainingPeriod,
+  sumVariableReserveForRange,
+  sumVariableExpenses,
+} from "./variable";
 import {
   addMonths,
   clampDayToMonth,
+  countDaysInclusive,
+  daysInMonth,
   formatMonthLabel,
   roundMoney,
   toISODate,
@@ -144,10 +152,6 @@ const MONTH_NAMES = [
 
 function getActiveIncomes(entries: RecurringEntry[]): RecurringEntry[] {
   return entries.filter((entry) => entry.active && entry.type === "income");
-}
-
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
 }
 
 function formatDayLabel(date: string): string {
@@ -440,13 +444,6 @@ export function buildIncomeDayProjection(
   };
 }
 
-function countDaysInclusive(startDate: string, endDate: string): number {
-  const start = new Date(`${startDate}T12:00:00`);
-  const end = new Date(`${endDate}T12:00:00`);
-  const diff = Math.round((end.getTime() - start.getTime()) / 86400000);
-  return Math.max(diff + 1, 1);
-}
-
 function mapAdHocIncomeToFlowEvents(incomes: AdHocIncome[]): CashPeriodFlowEvent[] {
   return incomes.map((income) => ({
     id: `extra-income-${income.id}`,
@@ -497,6 +494,7 @@ export function buildCashPeriodSummary(
     ? sumMovementsSinceSnapshot(
         accountBalanceSnapshot,
         today,
+        recurringEntries,
         adHocIncomes,
         adHocExpenses,
         registeredPayments
@@ -506,6 +504,7 @@ export function buildCashPeriodSummary(
     ? computeCurrentAccountBalance(
         accountBalanceSnapshot,
         today,
+        recurringEntries,
         adHocIncomes,
         adHocExpenses,
         registeredPayments
@@ -650,8 +649,32 @@ export function buildCashPeriodSummary(
   );
 
   const monthDays = daysInMonth(year, month);
-  const variableBudgetForPeriod = roundMoney(
-    totalVariableMonthly * (periodDays / monthDays)
+  const variableBudgetForPeriod = sumVariableReserveForRange(
+    variableBudgets,
+    adHocExpenses,
+    today,
+    periodEndDate,
+    year,
+    month
+  );
+  const variableCostForPeriod = sumVariableCostForRemainingPeriod(
+    variableBudgets,
+    adHocExpenses,
+    cycleStart,
+    today,
+    periodEndDate,
+    year,
+    month
+  );
+  const untaggedInCycle = sumUntaggedAdHocExpensesInRange(
+    adHocExpenses,
+    cycleStart,
+    periodEndDate
+  );
+  const untaggedUpcoming = sumUntaggedAdHocExpensesUpcomingInRange(
+    adHocExpenses,
+    today,
+    periodEndDate
   );
 
   const availableToSpend = usesAccountBalance
@@ -659,15 +682,15 @@ export function buildCashPeriodSummary(
         currentAccountBalance ?? 0,
         expensesUpcoming,
         variableBudgetForPeriod,
-        loggedExpensesUpcoming
+        untaggedUpcoming
       )
     : roundMoney(
         incomeReceived +
           extraIncomePast -
           expensesAlreadyPaid -
           expensesUpcoming -
-          variableBudgetForPeriod -
-          loggedExpensesTotal
+          variableCostForPeriod -
+          untaggedInCycle
       );
 
   const availableAfterNextIncome = roundMoney(

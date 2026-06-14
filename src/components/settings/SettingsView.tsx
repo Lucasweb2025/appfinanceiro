@@ -7,16 +7,21 @@ import {
   type AccountBalanceFormData,
 } from "@/lib/finance/account-balance";
 import type { AccountBalanceSnapshot } from "@/lib/finance/types";
+import type { AssistantTone } from "@/lib/finance/assistant-tone";
 import { formatCurrency, todayParts, toISODate } from "@/lib/finance/utils";
 
 export function SettingsView({
   snapshot,
+  assistantTone,
+  onAssistantToneChange,
   onSaveSnapshot,
   onClearSnapshot,
   onRestoreDefaults,
   onClearAll,
 }: {
   snapshot: AccountBalanceSnapshot | null;
+  assistantTone: AssistantTone;
+  onAssistantToneChange: (tone: AssistantTone) => void;
   onSaveSnapshot: (data: AccountBalanceFormData) => void;
   onClearSnapshot: () => void;
   onRestoreDefaults: () => void;
@@ -49,7 +54,7 @@ export function SettingsView({
 
   function handleRestoreDefaults() {
     const confirmed = window.confirm(
-      "Restaurar dados de exemplo (receitas, despesas, variáveis, dívidas e cartões)?"
+      "Restaurar o perfil padrão (seus fixos, Nubank, saldo R$ 2)?"
     );
     if (confirmed) onRestoreDefaults();
   }
@@ -78,6 +83,41 @@ export function SettingsView({
 
   return (
     <div className="space-y-4">
+      <Card title="Tom do assistente">
+        <p className="mb-4 text-sm text-slate-600">
+          Escolha como o resumo e o simulador falam com você.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onAssistantToneChange("direct")}
+            className={`rounded-2xl py-3 text-sm font-semibold ${
+              assistantTone === "direct"
+                ? "bg-slate-900 text-white"
+                : "bg-slate-100 text-slate-700"
+            }`}
+          >
+            Direto
+          </button>
+          <button
+            type="button"
+            onClick={() => onAssistantToneChange("gentle")}
+            className={`rounded-2xl py-3 text-sm font-semibold ${
+              assistantTone === "gentle"
+                ? "bg-brand-600 text-white"
+                : "bg-slate-100 text-slate-700"
+            }`}
+          >
+            Leve
+          </button>
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          {assistantTone === "direct"
+            ? "Ex.: “Segura o gasto”, “Marca como pago”."
+            : "Ex.: “Vale conferir”, “Fique de olho”."}
+        </p>
+      </Card>
+
       <Card title="Saldo em conta">
         <p className="mb-4 text-sm text-slate-600">
           Informe o valor que aparece no app do seu banco agora. Gastos, pagamentos

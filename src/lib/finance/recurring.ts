@@ -99,3 +99,41 @@ export function summarizeRecurringMonth(
     events,
   };
 }
+
+/** Entradas fixas que caíram depois da conferência do saldo (evita duplicar o que já estava no extrato) */
+export function sumRecurringIncomesAfterSnapshot(
+  entries: RecurringEntry[],
+  afterDate: string,
+  untilDate: string
+): number {
+  if (afterDate.localeCompare(untilDate) > 0) return 0;
+
+  const [startYear, startMonth] = afterDate.split("-").map(Number);
+  const [endYear, endMonth] = untilDate.split("-").map(Number);
+
+  let year = startYear!;
+  let month = startMonth!;
+  let total = 0;
+
+  while (year < endYear! || (year === endYear && month <= endMonth!)) {
+    const summary = summarizeRecurringMonth(entries, year, month);
+    for (const event of summary.events) {
+      if (
+        event.type === "income" &&
+        event.date > afterDate &&
+        event.date <= untilDate
+      ) {
+        total += event.amount;
+      }
+    }
+
+    if (year === endYear && month === endMonth) break;
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+
+  return roundMoney(total);
+}

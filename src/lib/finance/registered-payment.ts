@@ -191,6 +191,77 @@ export function referenceMonthFromDate(isoDate: string): string {
   return isoDate.slice(0, 7);
 }
 
+export function formatReferenceMonthLabel(referenceMonth: string): string {
+  const [year, month] = referenceMonth.split("-").map(Number);
+  if (!year || !month) return referenceMonth;
+  const labels = [
+    "jan",
+    "fev",
+    "mar",
+    "abr",
+    "mai",
+    "jun",
+    "jul",
+    "ago",
+    "set",
+    "out",
+    "nov",
+    "dez",
+  ];
+  return `${labels[month - 1]}/${year}`;
+}
+
+/** Desconta pagamentos registrados das saídas planejadas do mês */
+export function applyScheduledExpensesAfterPayments(
+  referenceMonth: string,
+  scheduledFixed: number,
+  scheduledDebt: number,
+  scheduledCards: number,
+  payments: RegisteredPayment[]
+): {
+  fixedExpenses: number;
+  debtPayments: number;
+  creditCardBills: number;
+} {
+  let fixedExpenses = scheduledFixed;
+  let debtPayments = scheduledDebt;
+  let creditCardBills = scheduledCards;
+
+  for (const payment of getActiveRegisteredPayments(payments)) {
+    if (payment.referenceMonth !== referenceMonth) continue;
+
+    switch (payment.targetType) {
+      case "recurring":
+        fixedExpenses = roundMoney(Math.max(0, fixedExpenses - payment.amount));
+        break;
+      case "debt":
+        debtPayments = roundMoney(Math.max(0, debtPayments - payment.amount));
+        break;
+      case "card":
+        creditCardBills = roundMoney(Math.max(0, creditCardBills - payment.amount));
+        break;
+    }
+  }
+
+  return { fixedExpenses, debtPayments, creditCardBills };
+}
+
+export function getEffectiveDebtRemaining(
+  debt: ActiveDebt,
+  payments: RegisteredPayment[]
+): number {
+  const paid = roundMoney(
+    getActiveRegisteredPayments(payments)
+      .filter(
+        (payment) =>
+          payment.targetType === "debt" && payment.targetId === debt.id
+      )
+      .reduce((sum, payment) => sum + payment.amount, 0)
+  );
+
+  return roundMoney(Math.max(0, debt.remainingBalance - paid));
+}
+
 export function validateRegisteredPayment(
   data: RegisteredPaymentFormData
 ): RegisteredPaymentValidationError[] {

@@ -6,7 +6,9 @@ import type {
 } from "./types";
 import { filterAdHocExpensesInRange } from "./ad-hoc-expense";
 import { filterAdHocIncomesInRange } from "./ad-hoc-income";
+import { sumRecurringIncomesAfterSnapshot } from "./recurring";
 import { getActiveRegisteredPayments } from "./registered-payment";
+import type { RecurringEntry } from "./types";
 import { roundMoney } from "./utils";
 
 export interface AccountBalanceFormData {
@@ -20,6 +22,7 @@ export interface AccountBalanceValidationError {
 }
 
 export interface BalanceMovementsSinceSnapshot {
+  recurringIncomes: number;
   extraIncomes: number;
   registeredPayments: number;
   loggedExpenses: number;
@@ -54,6 +57,7 @@ export function validateAccountBalance(
 export function sumMovementsSinceSnapshot(
   snapshot: AccountBalanceSnapshot,
   today: string,
+  recurringEntries: RecurringEntry[],
   adHocIncomes: AdHocIncome[],
   adHocExpenses: AdHocExpense[],
   registeredPayments: RegisteredPayment[]
@@ -62,12 +66,19 @@ export function sumMovementsSinceSnapshot(
 
   if (startDate.localeCompare(today) > 0) {
     return {
+      recurringIncomes: 0,
       extraIncomes: 0,
       registeredPayments: 0,
       loggedExpenses: 0,
       netChange: 0,
     };
   }
+
+  const recurringIncomes = sumRecurringIncomesAfterSnapshot(
+    recurringEntries,
+    startDate,
+    today
+  );
 
   const extraIncomes = roundMoney(
     filterAdHocIncomesInRange(adHocIncomes, startDate, today).reduce(
@@ -94,10 +105,14 @@ export function sumMovementsSinceSnapshot(
   );
 
   const netChange = roundMoney(
-    extraIncomes - loggedExpenses - registeredPaymentsTotal
+    recurringIncomes +
+      extraIncomes -
+      loggedExpenses -
+      registeredPaymentsTotal
   );
 
   return {
+    recurringIncomes,
     extraIncomes,
     registeredPayments: registeredPaymentsTotal,
     loggedExpenses,
@@ -108,6 +123,7 @@ export function sumMovementsSinceSnapshot(
 export function computeCurrentAccountBalance(
   snapshot: AccountBalanceSnapshot,
   today: string,
+  recurringEntries: RecurringEntry[],
   adHocIncomes: AdHocIncome[],
   adHocExpenses: AdHocExpense[],
   registeredPayments: RegisteredPayment[]
@@ -115,6 +131,7 @@ export function computeCurrentAccountBalance(
   const movements = sumMovementsSinceSnapshot(
     snapshot,
     today,
+    recurringEntries,
     adHocIncomes,
     adHocExpenses,
     registeredPayments
@@ -126,13 +143,13 @@ export function computeCurrentAccountBalance(
 export function computeAvailableFromAccountBalance(
   currentBalance: number,
   expensesUpcoming: number,
-  variableBudgetForPeriod: number,
-  loggedExpensesUpcoming: number
+  variableReserveForPeriod: number,
+  untaggedLoggedExpensesUpcoming: number
 ): number {
   return roundMoney(
     currentBalance -
       expensesUpcoming -
-      variableBudgetForPeriod -
-      loggedExpensesUpcoming
+      variableReserveForPeriod -
+      untaggedLoggedExpensesUpcoming
   );
 }

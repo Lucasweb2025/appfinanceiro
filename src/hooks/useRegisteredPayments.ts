@@ -20,9 +20,12 @@ export function useRegisteredPayments() {
     setReady(true);
   }, []);
 
-  const persist = useCallback((next: RegisteredPayment[]) => {
-    setPayments(next);
-    saveRegisteredPayments(next);
+  const persist = useCallback((next: RegisteredPayment[] | ((current: RegisteredPayment[]) => RegisteredPayment[])) => {
+    setPayments((current) => {
+      const resolved = typeof next === "function" ? next(current) : next;
+      saveRegisteredPayments(resolved);
+      return resolved;
+    });
   }, []);
 
   const createPayment = useCallback(
@@ -38,16 +41,16 @@ export function useRegisteredPayments() {
         paidEarly: data.paidEarly,
         active: data.active,
       };
-      persist([...payments, payment]);
+      persist((current) => [...current, payment]);
       return payment;
     },
-    [payments, persist]
+    [persist]
   );
 
   const updatePayment = useCallback(
     (id: string, data: RegisteredPaymentFormData) => {
-      persist(
-        payments.map((payment) =>
+      persist((current) =>
+        current.map((payment) =>
           payment.id === id
             ? {
                 ...payment,
@@ -64,25 +67,25 @@ export function useRegisteredPayments() {
         )
       );
     },
-    [payments, persist]
+    [persist]
   );
 
   const deletePayment = useCallback(
     (id: string) => {
-      persist(payments.filter((payment) => payment.id !== id));
+      persist((current) => current.filter((payment) => payment.id !== id));
     },
-    [payments, persist]
+    [persist]
   );
 
   const toggleActive = useCallback(
     (id: string) => {
-      persist(
-        payments.map((payment) =>
+      persist((current) =>
+        current.map((payment) =>
           payment.id === id ? { ...payment, active: !payment.active } : payment
         )
       );
     },
-    [payments, persist]
+    [persist]
   );
 
   const restoreDefaults = useCallback(() => {

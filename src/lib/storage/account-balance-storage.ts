@@ -1,15 +1,16 @@
+import { DEFAULT_ACCOUNT_BALANCE } from "@/lib/defaults";
 import type { AccountBalanceSnapshot } from "@/lib/finance/types";
 
 const STORAGE_KEY = "app-financas-account-balance";
 
 export function loadAccountBalance(): AccountBalanceSnapshot | null {
   if (typeof window === "undefined") {
-    return null;
+    return DEFAULT_ACCOUNT_BALANCE;
   }
 
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
+    if (!raw) return DEFAULT_ACCOUNT_BALANCE;
 
     const parsed = JSON.parse(raw) as AccountBalanceSnapshot;
     if (
@@ -17,12 +18,12 @@ export function loadAccountBalance(): AccountBalanceSnapshot | null {
       typeof parsed.amount !== "number" ||
       typeof parsed.asOfDate !== "string"
     ) {
-      return null;
+      return DEFAULT_ACCOUNT_BALANCE;
     }
 
     return parsed;
   } catch {
-    return null;
+    return DEFAULT_ACCOUNT_BALANCE;
   }
 }
 
@@ -33,6 +34,11 @@ export function saveAccountBalance(snapshot: AccountBalanceSnapshot | null): voi
   }
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+}
+
+export function resetAccountBalance(): AccountBalanceSnapshot {
+  saveAccountBalance(DEFAULT_ACCOUNT_BALANCE);
+  return DEFAULT_ACCOUNT_BALANCE;
 }
 
 export function clearAccountBalance(): null {

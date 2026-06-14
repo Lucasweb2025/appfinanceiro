@@ -65,6 +65,19 @@ export function sumAdHocIncomesInRange(
   );
 }
 
+export function sumAdHocIncomesInMonth(
+  incomes: AdHocIncome[],
+  year: number,
+  month: number
+): number {
+  const prefix = `${year}-${String(month).padStart(2, "0")}`;
+  return roundMoney(
+    getActiveAdHocIncomes(incomes)
+      .filter((income) => income.date.startsWith(prefix))
+      .reduce((sum, income) => sum + income.amount, 0)
+  );
+}
+
 export function filterAdHocIncomesInRange(
   incomes: AdHocIncome[],
   startDate: string,

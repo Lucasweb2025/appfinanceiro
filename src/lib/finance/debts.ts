@@ -2,6 +2,7 @@ import type {
   ActiveDebt,
   DebtProjection,
   ProjectionEvent,
+  RegisteredPayment,
 } from "./types";
 import {
   addMonths,
@@ -79,8 +80,13 @@ export function applyDebtPaymentsForMonth(
 /**
  * Estima em quantos meses a dívida será quitada com a parcela atual.
  */
-export function projectDebtPayoff(debt: ActiveDebt): DebtProjection {
-  const remaining = roundMoney(Math.max(debt.remainingBalance, 0));
+export function projectDebtPayoff(
+  debt: ActiveDebt,
+  remainingOverride?: number
+): DebtProjection {
+  const remaining = roundMoney(
+    Math.max(remainingOverride ?? debt.remainingBalance, 0)
+  );
   const monthlyPayment = roundMoney(debt.monthlyPayment);
 
   if (remaining <= 0) {
@@ -122,8 +128,26 @@ export function projectDebtPayoff(debt: ActiveDebt): DebtProjection {
   };
 }
 
-export function projectDebts(debts: ActiveDebt[]): DebtProjection[] {
-  return getActiveDebts(debts).map((debt) => projectDebtPayoff(debt));
+export function projectDebts(
+  debts: ActiveDebt[],
+  payments: RegisteredPayment[] = []
+): DebtProjection[] {
+  return getActiveDebts(debts).map((debt) => {
+    const paid = roundMoney(
+      payments
+        .filter(
+          (payment) =>
+            payment.active &&
+            payment.targetType === "debt" &&
+            payment.targetId === debt.id
+        )
+        .reduce((sum, payment) => sum + payment.amount, 0)
+    );
+    const effectiveRemaining = roundMoney(
+      Math.max(0, debt.remainingBalance - paid)
+    );
+    return projectDebtPayoff(debt, effectiveRemaining);
+  });
 }
 
 /**

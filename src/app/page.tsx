@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { AdHocExpenseFormModal } from "@/components/variable/AdHocExpenseFormModal";
 import { AdHocIncomeFormModal } from "@/components/movements/AdHocIncomeFormModal";
 import { RegisteredPaymentFormModal } from "@/components/movements/RegisteredPaymentFormModal";
@@ -12,12 +12,14 @@ import { GoalFormModal } from "@/components/goals/GoalFormModal";
 import { GoalsScreen } from "@/components/goals/GoalList";
 import { BottomNav, type AppTab } from "@/components/layout/BottomNav";
 import { DashboardView } from "@/components/recurring/DashboardView";
+import { PurchaseSimulationModal } from "@/components/home/PurchaseSimulationModal";
 import { RecurringFormModal } from "@/components/recurring/RecurringFormModal";
 import { RecurringList } from "@/components/recurring/RecurringList";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { VariableFormModal } from "@/components/variable/VariableFormModal";
 import { VariableList } from "@/components/variable/VariableList";
 import { PageShell } from "@/components/ui";
+import { useAssistantTone } from "@/hooks/useAssistantTone";
 import { useAccountBalance } from "@/hooks/useAccountBalance";
 import { useActiveDebts } from "@/hooks/useActiveDebts";
 import { useAdHocExpenses } from "@/hooks/useAdHocExpenses";
@@ -28,6 +30,10 @@ import { useFinancialGoals } from "@/hooks/useFinancialGoals";
 import { useRecurringEntries } from "@/hooks/useRecurringEntries";
 import { useVariableBudgets } from "@/hooks/useVariableBudgets";
 import { buildDashboardSummary } from "@/lib/finance/dashboard";
+import {
+  buildAssistantSummary,
+  computeNextMonthSurplus,
+} from "@/lib/finance/assistant";
 import type {
   ActiveDebt,
   AdHocExpense,
@@ -39,7 +45,7 @@ import type {
   RegisteredPayment,
   VariableBudget,
 } from "@/lib/finance/types";
-import { todayParts } from "@/lib/finance/utils";
+import { todayParts, toISODate } from "@/lib/finance/utils";
 
 export default function HomePage() {
   const recurring = useRecurringEntries();
@@ -48,6 +54,7 @@ export default function HomePage() {
   const adHocIncomes = useAdHocIncomes();
   const registeredPayments = useRegisteredPayments();
   const accountBalance = useAccountBalance();
+  const assistantTone = useAssistantTone();
   const debts = useActiveDebts();
   const creditCards = useCreditCards();
   const financialGoals = useFinancialGoals();
@@ -61,7 +68,11 @@ export default function HomePage() {
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [incomeModalOpen, setIncomeModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [simulateModalOpen, setSimulateModalOpen] = useState(false);
   const [paymentPresetKey, setPaymentPresetKey] = useState<string | undefined>();
+  const [paymentPresetReferenceMonth, setPaymentPresetReferenceMonth] = useState<
+    string | undefined
+  >();
   const [editingRecurring, setEditingRecurring] = useState<RecurringEntry | undefined>();
   const [editingVariable, setEditingVariable] = useState<VariableBudget | undefined>();
   const [editingDebt, setEditingDebt] = useState<ActiveDebt | undefined>();
@@ -71,9 +82,14 @@ export default function HomePage() {
   const [editingIncome, setEditingIncome] = useState<AdHocIncome | undefined>();
   const [editingPayment, setEditingPayment] = useState<RegisteredPayment | undefined>();
 
-  function openPaymentModal(presetKey?: string) {
+  useEffect(() => {
+    document.body.style.overflow = "";
+  }, []);
+
+  function openPaymentModal(presetKey?: string, presetReferenceMonth?: string) {
     setEditingPayment(undefined);
     setPaymentPresetKey(presetKey);
+    setPaymentPresetReferenceMonth(presetReferenceMonth);
     setPaymentModalOpen(true);
   }
 
@@ -108,6 +124,36 @@ export default function HomePage() {
     ]
   );
 
+  const nextMonthSurplus = useMemo(
+    () =>
+      computeNextMonthSurplus(
+        recurring.entries,
+        variable.budgets,
+        debts.debts,
+        creditCards.cards,
+        today.year,
+        today.month
+      ),
+    [
+      recurring.entries,
+      variable.budgets,
+      debts.debts,
+      creditCards.cards,
+      today.year,
+      today.month,
+    ]
+  );
+
+  const assistantSummary = useMemo(
+    () =>
+      buildAssistantSummary(
+        dashboard,
+        { tone: assistantTone.tone, bankReminderDismissed: false },
+        nextMonthSurplus
+      ),
+    [dashboard, assistantTone.tone, nextMonthSurplus]
+  );
+
   const ready =
     recurring.ready &&
     variable.ready &&
@@ -115,6 +161,7 @@ export default function HomePage() {
     adHocIncomes.ready &&
     registeredPayments.ready &&
     accountBalance.ready &&
+    assistantTone.ready &&
     debts.ready &&
     creditCards.ready &&
     financialGoals.ready;
@@ -128,7 +175,7 @@ export default function HomePage() {
     adHocExpenses.restoreDefaults();
     adHocIncomes.restoreDefaults();
     registeredPayments.restoreDefaults();
-    accountBalance.clearSnapshot();
+    accountBalance.restoreDefaults();
   }
 
   function handleClearAll() {
@@ -188,6 +235,7 @@ export default function HomePage() {
         {tab === "home" ? (
           <DashboardView
             summary={dashboard}
+            assistant={assistantSummary}
             incomes={adHocIncomes.incomes}
             payments={registeredPayments.payments}
             onAddExpense={() => {
@@ -198,7 +246,11 @@ export default function HomePage() {
               setEditingIncome(undefined);
               setIncomeModalOpen(true);
             }}
-            onRegisterPayment={(presetKey) => openPaymentModal(presetKey)}
+            onRegisterPayment={(presetKey, referenceMonth) =>
+              openPaymentModal(presetKey, referenceMonth)
+            }
+            onGoSettings={() => setTab("settings")}
+            onSimulate={() => setSimulateModalOpen(true)}
             onEditIncome={(income) => {
               setEditingIncome(income);
               setIncomeModalOpen(true);
@@ -304,6 +356,8 @@ export default function HomePage() {
         ) : (
           <SettingsView
             snapshot={accountBalance.snapshot}
+            assistantTone={assistantTone.tone}
+            onAssistantToneChange={assistantTone.updateTone}
             onSaveSnapshot={accountBalance.saveSnapshot}
             onClearSnapshot={accountBalance.clearSnapshot}
             onRestoreDefaults={handleRestoreDefaults}
@@ -371,7 +425,8 @@ export default function HomePage() {
         budgets={variable.budgets}
         onClose={() => setExpenseModalOpen(false)}
         onSubmit={(data) => {
-          if (editingExpense) adHocExpenses.updateExpense(editingExpense.id, data);
+          if (editingExpense && editingExpense.id !== "draft-simulate")
+            adHocExpenses.updateExpense(editingExpense.id, data);
           else adHocExpenses.createExpense(data);
         }}
       />
@@ -390,6 +445,7 @@ export default function HomePage() {
         open={paymentModalOpen}
         initial={editingPayment}
         presetTargetKey={paymentPresetKey}
+        presetReferenceMonth={paymentPresetReferenceMonth}
         recurringEntries={recurring.entries}
         activeDebts={debts.debts}
         creditCards={creditCards.cards}
@@ -397,6 +453,25 @@ export default function HomePage() {
         onSubmit={(data) => {
           if (editingPayment) registeredPayments.updatePayment(editingPayment.id, data);
           else registeredPayments.createPayment(data);
+        }}
+      />
+
+      <PurchaseSimulationModal
+        open={simulateModalOpen}
+        tone={assistantTone.tone}
+        summary={dashboard}
+        onClose={() => setSimulateModalOpen(false)}
+        onLaunchExpense={(name, amount) => {
+          const todayIso = toISODate(today.year, today.month, today.day);
+          setEditingExpense({
+            id: "draft-simulate",
+            name,
+            amount,
+            date: todayIso,
+            active: true,
+          });
+          setSimulateModalOpen(false);
+          setExpenseModalOpen(true);
         }}
       />
     </main>

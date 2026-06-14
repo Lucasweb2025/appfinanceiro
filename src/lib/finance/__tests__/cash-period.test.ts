@@ -111,6 +111,60 @@ describe("cash period", () => {
     expect(period.availableAfterNextIncome).toBeCloseTo(3286.67, 1);
   });
 
+  it("não desconta duas vezes gasto variável categorizado dentro do orçamento", () => {
+    const period = buildCashPeriodSummary(
+      lucasEntries,
+      variableBudgets,
+      activeDebts,
+      creditCards,
+      [
+        {
+          id: "e1",
+          name: "Café da manhã",
+          amount: 21,
+          date: "2026-06-14",
+          variableBudgetId: "v1",
+          active: true,
+        },
+      ],
+      [],
+      [],
+      null,
+      2026,
+      6,
+      13
+    );
+
+    expect(period.loggedExpensesUpcoming).toBe(21);
+    expect(period.availableToSpend).toBeCloseTo(1536.67, 1);
+  });
+
+  it("desconta gasto avulso sem categoria", () => {
+    const period = buildCashPeriodSummary(
+      lucasEntries,
+      variableBudgets,
+      activeDebts,
+      creditCards,
+      [
+        {
+          id: "e2",
+          name: "Presente",
+          amount: 21,
+          date: "2026-06-14",
+          active: true,
+        },
+      ],
+      [],
+      [],
+      null,
+      2026,
+      6,
+      13
+    );
+
+    expect(period.availableToSpend).toBeCloseTo(1515.67, 1);
+  });
+
   it("desconta gastos lançados no período (ex.: café R$ 21 amanhã)", () => {
     const period = buildCashPeriodSummary(
       lucasEntries,
@@ -137,7 +191,7 @@ describe("cash period", () => {
 
     expect(period.loggedExpensesUpcoming).toBe(21);
     expect(period.loggedExpensesTotal).toBe(21);
-    expect(period.availableToSpend).toBeCloseTo(1515.67, 1);
+    expect(period.availableToSpend).toBeCloseTo(1536.67, 1);
     expect(period.periodEvents.some((e) => e.kind === "logged")).toBe(true);
   });
 

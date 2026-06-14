@@ -103,6 +103,141 @@ describe("buildDashboardSummary", () => {
     expect(dashboard.monthlySurplus).toBe(648);
   });
 
+  it("inclui gastos avulsos e ganhos extras na sobra do mês", () => {
+    const dashboard = buildDashboardSummary(
+      lucasEntries,
+      variableBudgets,
+      activeDebts,
+      creditCards,
+      [],
+      [
+        {
+          id: "e1",
+          name: "Mercado",
+          amount: 150,
+          date: "2026-06-12",
+          active: true,
+        },
+      ],
+      [
+        {
+          id: "i1",
+          name: "Freela",
+          amount: 300,
+          date: "2026-06-11",
+          active: true,
+        },
+      ],
+      [],
+      null,
+      2026,
+      6
+    );
+
+    expect(dashboard.totalIncome).toBe(4048);
+    expect(dashboard.totalExpenses).toBe(3250);
+    expect(dashboard.netBalance).toBe(798);
+    expect(dashboard.monthlySurplus).toBe(798);
+  });
+
+  it("mantém contas vencidas nos alertas do mês", () => {
+    const dashboard = buildDashboardSummary(
+      lucasEntries,
+      variableBudgets,
+      activeDebts,
+      creditCards,
+      [],
+      [],
+      [],
+      [],
+      null,
+      2026,
+      6,
+      13
+    );
+
+    const overdue = dashboard.upcomingAlerts.find(
+      (alert) => alert.label === "Aluguel" && alert.date === "2026-06-10"
+    );
+
+    expect(overdue).toBeDefined();
+    expect(overdue?.isPaid).toBeFalsy();
+  });
+
+  it("não duplica gasto variável categorizado na sobra do mês", () => {
+    const dashboard = buildDashboardSummary(
+      lucasEntries,
+      variableBudgets,
+      activeDebts,
+      creditCards,
+      [],
+      [
+        {
+          id: "e1",
+          name: "Mercado",
+          amount: 150,
+          date: "2026-06-12",
+          variableBudgetId: "v1",
+          active: true,
+        },
+      ],
+      [],
+      [],
+      null,
+      2026,
+      6
+    );
+
+    expect(dashboard.totalExpenses).toBe(3100);
+    expect(dashboard.netBalance).toBe(648);
+  });
+
+  it("melhora sobra quando contas são marcadas como pagas", () => {
+    const withoutPayment = buildDashboardSummary(
+      lucasEntries,
+      variableBudgets,
+      activeDebts,
+      creditCards,
+      [],
+      [],
+      [],
+      [],
+      null,
+      2026,
+      6,
+      13
+    );
+
+    const withPayment = buildDashboardSummary(
+      lucasEntries,
+      variableBudgets,
+      activeDebts,
+      creditCards,
+      [],
+      [],
+      [],
+      [
+        {
+          id: "p1",
+          targetType: "debt",
+          targetId: "d2",
+          label: "Empréstimo (parcela)",
+          amount: 300,
+          paidDate: "2026-06-13",
+          referenceMonth: "2026-06",
+          paidEarly: false,
+          active: true,
+        },
+      ],
+      null,
+      2026,
+      6,
+      13
+    );
+
+    expect(withPayment.netBalance - withoutPayment.netBalance).toBe(300);
+  });
+
   it("projeta metas com a sobra mensal", () => {
     const dashboard = buildDashboardSummary(
       lucasEntries,
@@ -121,6 +256,38 @@ describe("buildDashboardSummary", () => {
     expect(dashboard.goalProjections).toHaveLength(1);
     expect(dashboard.goalProjections[0]?.remaining).toBe(3700);
     expect(dashboard.goalProjections[0]?.estimatedMonths).toBe(6);
+  });
+
+  it("reduz saldo devedor exibido após pagamentos registrados", () => {
+    const dashboard = buildDashboardSummary(
+      lucasEntries,
+      variableBudgets,
+      activeDebts,
+      creditCards,
+      [],
+      [],
+      [],
+      [
+        {
+          id: "p1",
+          targetType: "debt",
+          targetId: "d2",
+          label: "Empréstimo (parcela)",
+          amount: 300,
+          paidDate: "2026-06-08",
+          referenceMonth: "2026-06",
+          paidEarly: false,
+          active: true,
+        },
+      ],
+      null,
+      2026,
+      6,
+      13
+    );
+
+    expect(dashboard.debtItems[0]?.remaining).toBe(1500);
+    expect(dashboard.debtItems[0]?.estimatedMonths).toBe(5);
   });
 });
 

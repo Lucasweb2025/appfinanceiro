@@ -8,8 +8,20 @@ import type {
   AccountBalanceSnapshot,
   AdHocExpense,
   AdHocIncome,
+  RecurringEntry,
   RegisteredPayment,
 } from "../types";
+
+const recurringIncomes: RecurringEntry[] = [
+  {
+    id: "salary",
+    name: "Salário",
+    type: "income",
+    dayOfMonth: 20,
+    defaultAmount: 1750,
+    active: true,
+  },
+];
 
 describe("account balance", () => {
   const snapshot: AccountBalanceSnapshot = {
@@ -45,6 +57,7 @@ describe("account balance", () => {
     const movements = sumMovementsSinceSnapshot(
       snapshot,
       "2026-06-13",
+      [],
       incomes,
       [],
       payments
@@ -55,8 +68,28 @@ describe("account balance", () => {
     expect(movements.netChange).toBe(200);
 
     expect(
-      computeCurrentAccountBalance(snapshot, "2026-06-13", incomes, [], payments)
+      computeCurrentAccountBalance(
+        snapshot,
+        "2026-06-13",
+        [],
+        incomes,
+        [],
+        payments
+      )
     ).toBe(2650);
+  });
+
+  it("credita salário fixo depois da conferência do saldo", () => {
+    expect(
+      computeCurrentAccountBalance(
+        snapshot,
+        "2026-06-20",
+        recurringIncomes,
+        [],
+        [],
+        []
+      )
+    ).toBe(4200);
   });
 
   it("desconta gasto lançado no mesmo dia da conferência", () => {
@@ -71,7 +104,7 @@ describe("account balance", () => {
     ];
 
     expect(
-      computeCurrentAccountBalance(snapshot, "2026-06-10", [], expenses, [])
+      computeCurrentAccountBalance(snapshot, "2026-06-10", [], [], expenses, [])
     ).toBe(2449);
   });
 
@@ -95,13 +128,14 @@ describe("account balance", () => {
       "2026-06-10",
       [],
       [],
+      [],
       payments
     );
 
     expect(movements.registeredPayments).toBe(800);
-    expect(computeCurrentAccountBalance(snapshot, "2026-06-10", [], [], payments)).toBe(
-      1650
-    );
+    expect(
+      computeCurrentAccountBalance(snapshot, "2026-06-10", [], [], [], payments)
+    ).toBe(1650);
   });
 
   it("calcula disponível a partir do saldo em conta", () => {
@@ -122,7 +156,7 @@ describe("account balance", () => {
     ];
 
     expect(
-      computeCurrentAccountBalance(snapshot, "2026-06-13", [], expenses, [])
+      computeCurrentAccountBalance(snapshot, "2026-06-13", [], [], expenses, [])
     ).toBe(2330);
   });
 });

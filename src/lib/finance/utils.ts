@@ -92,3 +92,14 @@ export function todayParts(): { year: number; month: number; day: number } {
     day: now.getDate(),
   };
 }
+
+export function daysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+export function countDaysInclusive(startDate: string, endDate: string): number {
+  const start = new Date(`${startDate}T12:00:00`);
+  const end = new Date(`${endDate}T12:00:00`);
+  const diff = Math.round((end.getTime() - start.getTime()) / 86400000);
+  return Math.max(diff + 1, 1);
+}

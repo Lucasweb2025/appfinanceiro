@@ -10,7 +10,7 @@ import type {
   RegisteredPayment,
   VariableBudget,
 } from "./types";
-import { roundMoney, todayParts } from "./utils";
+import { roundMoney, todayParts, toISODate } from "./utils";
 import {
   buildCreditCardEventsForMonth,
   mapCreditCardsForDashboard,
@@ -23,9 +23,11 @@ import {
   projectDebts,
 } from "./debts";
 import { projectGoalsWithSurplus } from "./goals";
-import { findPaymentForAlert, findPaymentForTarget, resolvePaymentPresetKey } from "./registered-payment";
+import { sumAdHocExpensesInMonth } from "./ad-hoc-expense";
+import { sumAdHocIncomesInMonth } from "./ad-hoc-income";
+import { applyScheduledExpensesAfterPayments, findPaymentForAlert, findPaymentForTarget, resolvePaymentPresetKey } from "./registered-payment";
 import { summarizeRecurringMonth } from "./recurring";
-import { getActiveVariableBudgets, sumVariableExpenses } from "./variable";
+import { getActiveVariableBudgets, sumUntaggedAdHocExpensesInMonth, sumVariableExpenses, sumVariableExpensesWithLoggedInMonth } from "./variable";
 import {
   buildCalendarMonth,
   buildCashPeriodSummary,
@@ -110,7 +112,7 @@ function mapEventToAlert(event: DashboardTimelineEvent): DashboardAlert {
 
 function buildUpcomingAlerts(
   events: DashboardTimelineEvent[],
-  todayDay: number,
+  referenceDate: string,
   registeredPayments: RegisteredPayment[],
   recurringEntries: RecurringEntry[],
   activeDebts: ActiveDebt[],
@@ -118,7 +120,7 @@ function buildUpcomingAlerts(
 ): { upcoming: DashboardAlert[]; paid: DashboardAlert[] } {
   const alerts = events
     .map(mapEventToAlert)
-    .filter((event) => event.day >= todayDay && event.kind !== "card-closing")
+    .filter((event) => event.kind !== "card-closing" && event.kind !== "income")
     .map((alert) => {
       const payment = findPaymentForAlert(
         alert,
@@ -145,7 +147,12 @@ function buildUpcomingAlerts(
         paidEarly: payment.paidEarly,
       };
     })
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a, b) => {
+      const aOverdue = a.date < referenceDate ? 0 : 1;
+      const bOverdue = b.date < referenceDate ? 0 : 1;
+      if (aOverdue !== bOverdue) return aOverdue - bOverdue;
+      return a.date.localeCompare(b.date);
+    });
 
   return {
     upcoming: alerts.filter((alert) => !alert.isPaid).slice(0, 8),
@@ -165,8 +172,14 @@ export function buildDashboardSummary(
   registeredPayments: RegisteredPayment[],
   accountBalanceSnapshot: AccountBalanceSnapshot | null,
   year: number,
-  month: number
+  month: number,
+  asOfDay?: number
 ): DashboardSummary {
+  const today = todayParts();
+  const referenceDay =
+    asOfDay ??
+    (year === today.year && month === today.month ? today.day : 1);
+  const referenceDate = toISODate(year, month, referenceDay);
   const base = summarizeRecurringMonth(recurringEntries, year, month);
   const totalVariableExpenses = sumVariableExpenses(variableBudgets);
   const variableItems = getActiveVariableBudgets(variableBudgets).map((budget) => ({
@@ -186,7 +199,10 @@ export function buildDashboardSummary(
   const { events: cardEvents, totalBills: totalCreditCardBills } =
     buildCreditCardEventsForMonth(year, month, creditCards);
 
-  const debtItems: DashboardDebtItem[] = projectDebts(activeDebts).map((item) => {
+  const debtItems: DashboardDebtItem[] = projectDebts(
+    activeDebts,
+    registeredPayments
+  ).map((item) => {
     const referenceMonth = `${year}-${String(month).padStart(2, "0")}`;
     const payment = findPaymentForTarget(
       registeredPayments,
@@ -212,17 +228,39 @@ export function buildDashboardSummary(
     (a, b) => a.date.localeCompare(b.date)
   );
 
-  const today = todayParts();
-  const todayDay = year === today.year && month === today.month ? today.day : 1;
-
-  const totalExpenses = roundMoney(
-    base.totalFixedExpenses +
-      totalVariableExpenses +
-      totalDebtPayments +
-      totalCreditCardBills
+  const referenceMonthKey = `${year}-${String(month).padStart(2, "0")}`;
+  const scheduledAfterPayments = applyScheduledExpensesAfterPayments(
+    referenceMonthKey,
+    base.totalFixedExpenses,
+    totalDebtPayments,
+    totalCreditCardBills,
+    registeredPayments
   );
 
-  const netBalance = roundMoney(base.totalIncome - totalExpenses);
+  const totalAdHocExpenses = sumAdHocExpensesInMonth(adHocExpenses, year, month);
+  const totalAdHocIncomes = sumAdHocIncomesInMonth(adHocIncomes, year, month);
+  const totalVariableWithLogged = sumVariableExpensesWithLoggedInMonth(
+    variableBudgets,
+    adHocExpenses,
+    year,
+    month
+  );
+  const totalUntaggedAdHoc = sumUntaggedAdHocExpensesInMonth(
+    adHocExpenses,
+    year,
+    month
+  );
+  const totalIncome = roundMoney(base.totalIncome + totalAdHocIncomes);
+
+  const totalExpenses = roundMoney(
+    scheduledAfterPayments.fixedExpenses +
+      scheduledAfterPayments.debtPayments +
+      scheduledAfterPayments.creditCardBills +
+      totalVariableWithLogged +
+      totalUntaggedAdHoc
+  );
+
+  const netBalance = roundMoney(totalIncome - totalExpenses);
 
   const cashPeriod = buildCashPeriodSummary(
     recurringEntries,
@@ -233,9 +271,9 @@ export function buildDashboardSummary(
     adHocIncomes,
     registeredPayments,
     accountBalanceSnapshot,
-    today.year,
-    today.month,
-    today.day
+    year,
+    month,
+    referenceDay
   );
 
   const calendar = buildCalendarMonth(
@@ -249,14 +287,14 @@ export function buildDashboardSummary(
     cashPeriod,
     year,
     month,
-    today.year,
-    today.month,
-    today.day
+    year,
+    month,
+    referenceDay
   );
 
   const alertGroups = buildUpcomingAlerts(
     timelineEvents,
-    todayDay,
+    referenceDate,
     registeredPayments,
     recurringEntries,
     activeDebts,
@@ -283,7 +321,7 @@ export function buildDashboardSummary(
     year,
     month,
     label: base.label,
-    totalIncome: base.totalIncome,
+    totalIncome,
     totalFixedExpenses: base.totalFixedExpenses,
     totalVariableExpenses,
     totalDebtPayments,

@@ -208,7 +208,11 @@ export function CashPeriodCard({ period }: { period: CashPeriodSummary }) {
             <div className="bg-slate-900/40 p-4">
               <p className="text-xs text-slate-400">Ganhos desde conferência</p>
               <p className="mt-1 font-semibold text-emerald-300">
-                +{formatCurrency(period.balanceMovementsSinceSnapshot?.extraIncomes ?? 0)}
+                +
+                {formatCurrency(
+                  (period.balanceMovementsSinceSnapshot?.recurringIncomes ?? 0) +
+                    (period.balanceMovementsSinceSnapshot?.extraIncomes ?? 0)
+                )}
               </p>
             </div>
             <div className="bg-slate-900/40 p-4">
