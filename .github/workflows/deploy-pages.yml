@@ -32,9 +32,10 @@ jobs:
         env:
           GITHUB_PAGES: "true"
           NEXT_PUBLIC_BASE_PATH: "/appfinanceiro"
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_ADMIN_EMAIL: ${{ secrets.NEXT_PUBLIC_ADMIN_EMAIL }}
+          # NEXT_PUBLIC_* vão para o bundle do navegador (não são secretos)
+          NEXT_PUBLIC_SUPABASE_URL: https://jkxpylvtkuqygcprcwfy.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_-uD9oFX05NC4fCBby0CnFQ_4DW1Ji-o
+          NEXT_PUBLIC_ADMIN_EMAIL: lucaspweb@gmail.com
 
       - uses: actions/upload-pages-artifact@v3
         with:
