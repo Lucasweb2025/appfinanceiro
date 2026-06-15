@@ -1,8 +1,10 @@
 # App Finanças
 
+> **Em construção** — funcionalidades e deploy ainda sendo ajustados.
+
 Controle de receitas fixas, despesas fixas, variáveis, cartões e metas — com saldo em conta, assistente e sincronização na nuvem.
 
-**Demo:** [lucasweb2025.github.io/appfinanceiro](https://lucasweb2025.github.io/appfinanceiro/)
+**Demo (beta):** [lucasweb2025.github.io/appfinanceiro](https://lucasweb2025.github.io/appfinanceiro/)
 
 ---
 
